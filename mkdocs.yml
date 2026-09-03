@@ -14,11 +14,15 @@ theme:
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
+      primary: black
+      accent: blue grey
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
+      primary: black
+      accent: blue grey
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
@@ -28,6 +32,7 @@ plugins:
 
 markdown_extensions:
   - attr_list
+  - md_in_html
   - footnotes
   - tables
   - admonition
@@ -46,10 +51,14 @@ markdown_extensions:
   - pymdownx.tabbed:
       alternate_style: true
   - pymdownx.tilde
+  - pymdownx.blocks.caption
 
 extra_javascript:
   - javascripts/mathjax.js
   - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+
+extra_css:
+  - stylesheets/extra.css
 
 nav:
   - Home: index.md

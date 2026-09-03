@@ -1,0 +1,183 @@
+/* Minimal reading-oriented adjustments for research and technical writing. */
+:root {
+  --research-content-width: 44rem;
+}
+
+/* Keep long-form content focused while leaving room for both sidebars. */
+.md-grid {
+  max-width: 72rem;
+}
+
+.md-content__inner {
+  max-width: var(--research-content-width);
+  margin-inline: auto;
+  padding-inline: 0.8rem;
+}
+
+.md-typeset {
+  font-size: 0.81rem;
+  line-height: 1.82;
+  text-rendering: optimizeLegibility;
+}
+
+.md-typeset p {
+  margin-block: 0.9em;
+}
+
+/* Restrained heading scale with clearer section rhythm. */
+.md-typeset h1 {
+  margin: 0 0 1.2em;
+  color: var(--md-default-fg-color);
+  font-size: 1.9em;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.md-typeset h2 {
+  margin: 2.1em 0 0.75em;
+  font-size: 1.48em;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.md-typeset h3 {
+  margin: 1.7em 0 0.65em;
+  font-size: 1.18em;
+  font-weight: 600;
+}
+
+/* Reduce navigation weight without weakening the active location. */
+.md-nav {
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+
+.md-nav__link {
+  color: var(--md-default-fg-color--light);
+}
+
+.md-nav__link:is(:focus, :hover) {
+  color: var(--md-accent-fg-color);
+}
+
+.md-nav__link--active {
+  color: var(--md-accent-fg-color);
+  font-weight: 600;
+}
+
+.md-sidebar--secondary .md-nav {
+  font-size: 0.64rem;
+}
+
+.md-sidebar--secondary .md-nav__link:not(.md-nav__link--active) {
+  color: var(--md-default-fg-color--lighter);
+}
+
+/* Code remains compact, readable, and horizontally scrollable. */
+.md-typeset pre {
+  overflow-x: auto;
+}
+
+.md-typeset pre > code {
+  font-size: 0.72rem;
+  line-height: 1.65;
+}
+
+.md-typeset :not(pre) > code {
+  border: 0.05rem solid var(--md-default-fg-color--lightest);
+  background-color: var(--md-code-bg-color);
+}
+
+/* Lightweight tables for experimental results and paper comparisons. */
+.md-typeset__scrollwrap {
+  max-width: 100%;
+  margin-inline: 0;
+  overflow-x: auto;
+  text-align: center;
+}
+
+.md-typeset__table {
+  display: inline-block;
+  max-width: none;
+  padding-inline: 0;
+  text-align: left;
+  vertical-align: top;
+}
+
+.md-typeset table:not([class]) {
+  margin-inline: auto;
+  border-color: var(--md-default-fg-color--lightest);
+  box-shadow: none;
+  font-size: 0.7rem;
+}
+
+.md-typeset table:not([class]) th {
+  background-color: var(--md-default-fg-color--lightest);
+  font-weight: 600;
+}
+
+/* Images and figures stay inside the article column without decoration. */
+.md-typeset img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin-inline: auto;
+}
+
+.md-typeset figure {
+  max-width: 100%;
+  margin: 1.5em auto;
+}
+
+.md-typeset figcaption {
+  margin: 0.6em auto 0;
+  color: var(--md-default-fg-color--light);
+  font-size: 0.7rem;
+  font-style: normal;
+  line-height: 1.55;
+}
+
+/* Large display equations may scroll on narrow screens instead of overflowing. */
+.md-typeset div.arithmatex,
+.md-typeset mjx-container[display="true"] {
+  max-width: 100%;
+  margin-block: 1.35em;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* Preserve Material's Mermaid theming and only constrain its layout. */
+.md-typeset .mermaid {
+  max-width: 100%;
+  overflow-x: auto;
+  text-align: center;
+}
+
+.md-typeset .mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Keep supporting components flat and secondary to the article. */
+.md-typeset .admonition,
+.md-typeset details {
+  border-radius: 0.1rem;
+  box-shadow: none;
+}
+
+@media screen and (max-width: 59.984375em) {
+  .md-content__inner {
+    max-width: none;
+    margin-inline: 0;
+    padding-inline: 0.8rem;
+  }
+
+  .md-typeset {
+    font-size: 0.8rem;
+    line-height: 1.78;
+  }
+
+  .md-typeset h1 {
+    font-size: 1.75em;
+  }
+}
