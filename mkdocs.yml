@@ -4,7 +4,6 @@ theme:
   name: material
   features:
     - navigation.tabs
-    - navigation.sections
     - navigation.top
     - navigation.indexes
     - toc.follow
@@ -62,7 +61,21 @@ extra_css:
 
 nav:
   - Home: index.md
-  - Projects: projects/index.md
+  - Projects:
+      - projects/index.md
+      - "Diffusion from Scratch: From DiT to Image Editing":
+          - projects/diffusion-from-scratch/index.md
+          - "00. Prerequisites": projects/diffusion-from-scratch/00-prerequisites.md
+          - "01. Diffusion Fundamentals": projects/diffusion-from-scratch/01-diffusion-fundamentals.md
+          - "02. Building a DiT Backbone": projects/diffusion-from-scratch/02-building-dit-backbone.md
+          - "03. Training a DiT": projects/diffusion-from-scratch/03-training-dit.md
+          - "04. Sampling and Inference": projects/diffusion-from-scratch/04-sampling-and-inference.md
+          - "05. Conditioning and Guidance": projects/diffusion-from-scratch/05-conditioning-and-guidance.md
+          - "06. From Generation to Image-to-Image": projects/diffusion-from-scratch/06-image-to-image.md
+          - "07. Image Editing Architectures": projects/diffusion-from-scratch/07-image-editing-architectures.md
+          - "08. Building an Image Editing Pipeline": projects/diffusion-from-scratch/08-building-image-editing-pipeline.md
+          - "09. Training Image Editing Models": projects/diffusion-from-scratch/09-training-image-editing-models.md
+          - "10. Efficient Inference and Deployment": projects/diffusion-from-scratch/10-efficient-inference-and-deployment.md
   - Notes: notes/index.md
   - Research: research/index.md
   - About: about.md
