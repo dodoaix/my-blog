@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="240" viewBox="0 0 640 240" role="img" aria-labelledby="title desc">
+  <title id="title">Elements test image</title>
+  <desc id="desc">A simple diagram connecting Markdown, MkDocs, and Material.</desc>
+  <rect width="640" height="240" rx="20" fill="#4051b5"/>
+  <g fill="#ffffff" font-family="Arial, sans-serif" text-anchor="middle">
+    <text x="320" y="54" font-size="26" font-weight="700">Technical Writing</text>
+    <rect x="50" y="95" width="150" height="70" rx="12" fill="#ffffff" opacity="0.16"/>
+    <rect x="245" y="95" width="150" height="70" rx="12" fill="#ffffff" opacity="0.16"/>
+    <rect x="440" y="95" width="150" height="70" rx="12" fill="#ffffff" opacity="0.16"/>
+    <text x="125" y="138" font-size="19">Markdown</text>
+    <text x="320" y="138" font-size="19">MkDocs</text>
+    <text x="515" y="138" font-size="19">Material</text>
+    <text x="222" y="138" font-size="24">→</text>
+    <text x="417" y="138" font-size="24">→</text>
+  </g>
+</svg>
