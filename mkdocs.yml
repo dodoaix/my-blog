@@ -67,5 +67,6 @@ nav:
       - projects/index.md
       - "TITO Transformer":
           - projects/tito-transformer/index.md
+          - projects/tito-transformer/01-tensor.md
       - "Diffusion from Scratch: From DiT to Image Editing":
           - projects/diffusion-from-scratch/index.md
