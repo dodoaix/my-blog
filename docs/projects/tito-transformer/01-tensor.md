@@ -158,7 +158,141 @@ def mul_backward(self, ctx):
 
 > _ctx 保存的正是反向传播所依赖的正向中间值。
 
-## Make a Operation
+## Make an Operation
 
+### Abstract Function
+所以，在进入对张量的操作之前，先要定义并实现**操作**本身：
+
+1. 操作代表一种运算使用的算子，它本身是**类**的概念：不同元素之间的加法都遵循相同的加法逻辑，用法相同。
+2. 同种操作又与实际数据关联，单个操作是**类的实例**：A+B+C 中，两个加法分别处理 A与B / （AB之和）与 C。
+3. 反向求导时每次运算都与参与元素相关：`X*Y or X*1`分别对X的导数是不同的，每个操作实例需要‘记住’自己处理的元素。
+4. 操作不一定是二元的，可能是三元或各种情况，并有时能接收额外参数（加权平均、特殊归一化等）。
+
+抽象以上概念，便可整理出一个能够处理任意多元输入、进行前向运算、记录运算成员、执行反向传播的操作/函数基类：
+
+```python
+class Function:
+    def __init__(self, *inputs, **params):
+        self.inputs = inputs
+        for name, value in params.items():
+            setattr(self, name, value) # 额外参数注册为实例属性
+    
+    def forward(self, *arrays):
+        # 需要具体到某个操作
+    def backward(self, grad_output):
+        # 需要具体到某个操作
+    @classmethod
+    def apply(cls, *inputs, **params):
+        node = cls(*inputs, **params) # 实例化计算图中的操作对象
+        arrays = [t.data for t in inputs]
+        return Tensor(node.forward(*arrays))
+```
+
+此处 `@classmethod` 起到的作用是对于任何一个继承了 `Function` 的具体操作子类来说，当它们使用 `.apply` 方法时，不需要预先创建一个实例，而是可以直接用类名调用，在运算进行时才会创建并使用。否则，每次在使用 `Matmul` 之前，都必须先进行 `Matmul()` 显式实例一个‘矩阵乘法者’。
+
+```mermaid
+graph LR
+    A["A + B"] --> AP["Add.apply(A, B)"]
+    AP --> N["本次加法对象 node"]
+    N --> F["node.forward()"]
+    F --> O["输出 Tensor"]
+
+    classDef s fill:#4A90D9,stroke:#2C5F8A,color:#fff
+    classDef n fill:#F5A623,stroke:#B87700,color:#fff
+    classDef o fill:#D9534F,stroke:#A33,color:#fff
+    class A s
+    class N n
+    class O o
+```
+
+你也许会注意到，按照现在的 `.apply` 写法，`node` 对象虽然被创建了，但在本次运算结束后就失去了所有引用而可能会被回收。这不符合“反向传播时还要用到它”的直觉。实际上 `outTensor` 会在它的 `.grad_fn` 属性中保存 `node` 的引用，考虑到教程截至目前并不涉及反向传播的具体过程，此处简写了。
+
+### Multiply Example
+回顾在 **Operation vs Tensor** 部分，曾实现了一个不合适的与 Tensor 类高度耦合的乘法案例，现在可以将其拆分出来，改写出正确的版本：
+
+```python
+class Mul(Function):
+
+    def forward(self, a, b):
+        return a * b
+
+    def backward(self, grad_output):
+        a, b = self.ctx.saved # ctx 即前向时保存的正向输入，这里我们并没有完整实现，仅供示意
+        return grad_output * b, grad_output * a
+```
+
+现在，乘法和张量互相独立，该如何将它们结合起来？在目前是线下，要进行张量的常数乘法，只能通过这种方式：
+
+```python
+Mul.apply(X, Y)
+```
+
+这是因为并没有把此处定义的乘法运算与常用的乘法运算符 `*` 联系起来，要让 Tensor 类能够与 `*` 连接，需要为之实现对应的运算符重载方法 `__mul__` 来将乘号转发至 `Mul.apply`：
+
+```python
+class Tensor:
+    ...
+    def __mul__(self, other): # *
+        Mul.apply(self, other)
+    def __rmul__(self, other):
+        self.__mul__(other)
+```
 
 ## Operate a Tensor
+
+### Move a Pointer
+其他的基础运算逻辑大同小异，不再赘述，本节我们具体探讨对张量的各种变换，在具体开始前，必须先了解张量的结构是如何在存储层是如何实现的、如何映射到逻辑形状。
+
+众所周知，内存是连续且线性的，可以将其认为一个极长的1-D数组，每个位置均有确定下标。当在 Torch 中（也是在说本项目的 Tiny Torch）创建一个指定尺寸 `2 x 8`的张量，就是在内存中划出了一片大小为`16`个单位的连续缓冲区用于保存数据，并告知调用者该区域在逻辑地址中的首地址`假设为0`用于定位。那么这段连续的一维结构如何在使用时表现出`2 x 8`的尺寸？
+
+> 1 个单位 = 4 字节，使用 float32 元素。
+
+从人的角度理解，`2 x 8` 的尺寸意味着**我**（假设你是内存指针）从头开始，每看到8个元素就应该知道要进入下一个子序列：
+
+| 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 |
+|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| <span style="color:gray">■</span> | <span style="color:gray">■</span> | <span style="color:gray">■</span> | <span style="color:gray">■</span> | <span style="color:gray">■</span> | <span style="color:gray">■</span> | <span style="color:gray">■</span> | <span style="color:red">■</span> | <span style="color:gray">■</span> | <span style="color:gray">■</span> | <span style="color:gray">■</span> | <span style="color:gray">■</span> | <span style="color:gray">■</span> | <span style="color:gray">■</span> | <span style="color:gray">■</span> | <span style="color:gray">■</span> |
+
+但指针不会这么想，它只能向前或后移动一定长度，不过，连带着下标一起折叠到 `2*8` 尺寸的表格后你会发现：
+
+| 00 | 01 | 02 | 03 | 04 | 05 | 06 | 07 |
+|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| <span style="color:gray">■</span> | <span style="color:gray">■</span> | <span style="color:gray">■</span> | <span style="color:gray">■</span> | <span style="color:gray">■</span> | <span style="color:gray">■</span> | <span style="color:gray">■</span> | <span style="color:red">■</span> |
+
+| 08 | 09 | 10 | 11 | 12 | 13 | 14 | 15 |
+|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| <span style="color:gray">■</span> | <span style="color:gray">■</span> | <span style="color:gray">■</span> | <span style="color:gray">■</span> | <span style="color:gray">■</span> | <span style="color:gray">■</span> | <span style="color:gray">■</span> | <span style="color:gray">■</span> |
+
+上下两个元素对应的下标之差刚好是后一维度的大小 `8` !虽然指针只能前后移动，向前移动 8 步就等于到了下一个子序列的同一位置，相当于沿着维度作‘上下’运动；而当在前后方向一步一步移动时，就是在维度内部作‘左右’运动。因此，要控制指针沿着张量的哪个维度移动，只需要控制指针每次前后移动的距离——这就是步长（stride）的概念。
+
+$$
+\text{index} = \text{storage offset} + \text{OFFSET} \newline 
+\text{OFFSET} = i \times stride[0] + j \times stride[1]
+$$
+
+推广到 N 维的情况下，要想在某一维度跳跃，只需要跳过该维度下所有子维度的元素数量，例如 `4 x 3 x 2 x 1` 的张量，在首个维度跳跃时，指针应跳过 `3 x 2 x 1 = 6` 个元素。
+
+### Shape a Tensor
+
+理解了上述指针寻址原理，接下来可以很迅速地理解所有有关矩阵形状的各类操作：broadcast, reshape, transpose。
+
+请思考，如果不同的步长控制了指针在不同维度上的移动，假设一个二维的步长（`offset = i * stride[0] + j * stride[1]`），其步长分别为 `0` 和 `1`，会发生什么？对于任意的 `i` ，高维的移动距离总是 0，每次指针以为自己在维度上移动了，实际上访问的元素仍然是原来那些。在这种情况下，张量**以为**自己拥有了更多维度，它的尺寸**凭空**扩大了若干倍。
+
+这就是**广播（Broadcasting）**，张量在不需要多余数据的情况下通过重复内部元素实现尺寸扩张，这会在深度学习处理张量统一偏置或跨维度的计算时发挥重要作用，避免总是需要手动维护张量尺寸的操作。当然，这是步长为 0 时的一种特殊情况；如果我们只修改步长为非0的其他数，又会发生什么呢？
+
+仍然以前面 16 个元素的序列为例，通过设置步长分别为 8, 1 表现出 `2 x 8` 尺寸；保持 `1` 不变，将 `8` 改为 `4`，每次大步走 4，可以走 4 次，尺寸自然地变成了 `4 x 4`，元素的数量没有变化。这种在保持元素总数不变的情况下更改步长使张量尺寸调整的操作就是 **Reshape**。
+
+> 不能保持元素总数不变时，我们称之为 **Error**.
+
+**Transpose** 转置则是另一种特殊的对维度的操作，特指只交换两个指定维度的情形，不过它并不是调整步长的**数值**，而是对某些维度的步长**顺序**进行交换，现在对你来说一定不复杂，就不展开讨论了。当你理解了 Transpose 是如何交换维度的，还可以再深入想想 permute 如何实现任意维度的重排。
+
+以上的这些操作体现了如何在**同一段内存空间上**通过不同的**读**方式来获得‘不同’的张量。为什么是引号的‘不同’，不难发现无论如何改变尺寸，指针实际使用的内容始终来自同一段内存空间，即使新的维度出现，其中的数据也来自对同一内存的重复读取。这是节约内存的好消息，却是编辑张量的潜在问题，当 y 是 x 的步长重排变体时，你不可能单独修改其一而不影响另外一个：
+
+```python
+y = x.reshape(4, 4)
+y[0][2] = 1
+
+x[0][2] == y[0][2] ?
+```
+
+除此之外，还有一个非常潜在且重要的问题，这些对步长、维度的操作，可能会导致张量在逻辑存储中**不连续**。
