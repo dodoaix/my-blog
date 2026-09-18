@@ -266,7 +266,10 @@ class Tensor:
 上下两个元素对应的下标之差刚好是后一维度的大小 `8` !虽然指针只能前后移动，向前移动 8 步就等于到了下一个子序列的同一位置，相当于沿着维度作‘上下’运动；而当在前后方向一步一步移动时，就是在维度内部作‘左右’运动。因此，要控制指针沿着张量的哪个维度移动，只需要控制指针每次前后移动的距离——这就是步长（stride）的概念。
 
 $$
-\text{index} = \text{storage offset} + \text{OFFSET} \newline 
+\text{index} = \text{storage offset} + \text{OFFSET}
+$$
+
+$$
 \text{OFFSET} = i \times stride[0] + j \times stride[1]
 $$
 
