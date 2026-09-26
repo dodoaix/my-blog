@@ -64,6 +64,8 @@ extra_css:
 
 nav:
   - Home: index.md
+  - Notes:
+      - notes/[KVCache 量化算子]KIVI.md
   - Projects:
       - projects/index.md
       - "TITO Transformer":
