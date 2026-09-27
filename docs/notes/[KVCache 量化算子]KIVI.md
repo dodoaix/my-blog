@@ -115,9 +115,13 @@ def pack_tensor(data, bits, pack_dim)
 
 现在，我们成功实现了一条低比特存储路线，也已经可以通过推理时的数值变化情况评估设计的方案效果，可也只是实现了存储部分。在当前的模型进行计算时，仍然不得不进行 `int2 packs - unpack - dequant - fp16 torch.matmul`，相比原来的 `fp16 tensors - torch.matmul` 正常推理过程还多了额外的解包、反量化和各种 Tensor 搬运的开销，因此推理效率反而会更慢。这一切都是因为我们自创了一个非标准的 `packed code` 数据结构，它不被任何运算单元熟悉，只能先被转换为支持的数据类型再送入单元运算。
 
+![fusion-dataflow](https://dodoaix-blog-1307847568.cos.ap-guangzhou.myqcloud.com/blog/tito/fusion-dataflow.svg)
+
 因此，必须设计并实现在运算层面生效的算子，使 GPU Kernel 可以直接接受 `packed code + quant scales`，能像进行浮点数矩阵乘法一样原生地支持自定义的运算方式。
 
 [教程 Triton 章节](https://datawhalechina.github.io/llm-algo-leetcode/03_Triton_Kernels/3_1.html) 中深入介绍了基于 Block 编程的高性能算子实现中间层工具，我们在此就使用这一工具实现上述量化方案的算子，真正走向高性能的低比特存储和计算。
+
+![program-grid](https://dodoaix-blog-1307847568.cos.ap-guangzhou.myqcloud.com/blog/tito/program-grid.svg)
 
 前文讨论的 `min-max quant, pack` 函数均需要重做 triton 版本以提供高性能支持，但实现逻辑相差不大，就不再展开，具体请参考[代码](https://github.com/jy-yuan/KIVI/blob/main/quant/new_pack.py)；而负责解包、反量化的 `unpack, dequant` 函数则不再被需要，这两个过程需要被整合到矩阵乘法算子中，使之能直接接受量化数值并在内部解包、反量化、计算。
 
@@ -267,6 +271,8 @@ accumulator = tl.zeros((BLOCK_N,), dtype=tl.float32)
 ```
 
 这里的 `offs_n` 是当前 program 负责的逻辑输出列，比如 `pid_n=1、BLOCK_N=64` 时，它包含的就是 `[64,65,...,127]`。对于普通矩阵，我们可以直接用这些列坐标读取元素，但 packed 矩阵需要再走一步：先找到容器，再找到容器内的槽位。因此代码中同时保留了 `packed_n` 和 `shifter`，前者决定读取哪个 int32，后者决定从中取出哪几个 bit。以 2-bit 的逻辑列 19 为例，19//16=1，说明它在第 1 个 int32 中；(19%16)*2=6，说明需要右移 6 位再与 `0011` 做按位与。
+
+![packed-addressing](https://dodoaix-blog-1307847568.cos.ap-guangzhou.myqcloud.com/blog/tito/packed-addressing.svg)
 
 有了这些坐标，就可以沿 K 维度分批读取数据。对于 QK 计算，K 对应 `Head Dimension`，每一轮读取一部分 Channel；对于 AV 计算，K 对应历史 Token 数，每一轮读取一部分 Token。虽然含义不同，但是计算形式是一致的：取出 `[BLOCK_K,1]` 的 A 和逻辑上 `[BLOCK_K,BLOCK_N]` 的 B，恢复 B 的浮点数值后，逐元素相乘，再沿第一维求和，得到当前 K 分块对 BLOCK_N 个输出位置的贡献。
 
